@@ -1,0 +1,68 @@
+#Importing necessary modules
+
+from Cryptodome.Cipher import PKCS1_OAEP
+from Cryptodome.PublicKey import RSA
+from binascii import hexlify
+from py_ecc.bls.ciphersuites import G2ProofOfPossession as bls_pop
+
+#privare key for Alice
+private_key_alice = 5566
+public_key_alice = bls_pop.SkToPk(private_key_alice)
+
+#The message to be encrypted
+message = b'Public and Private keys encryption'
+
+#Generating private key (RsaKey object) of key length of 1024 bits
+private_key_bob = RSA.generate(1024)
+
+#Generating the public key (RsaKey object) from the private key
+public_key_bob = private_key_bob.publickey()
+print(type(private_key_bob), type(public_key_bob))
+
+#Converting the RsaKey objects to string 
+private_pem_bob = private_key_bob.export_key().decode()
+public_pem_bob = public_key_bob.export_key().decode()
+print(type(private_pem_bob), type(public_pem_bob))
+
+#Writing down the private and public keys to 'pem' files
+with open('private_pem_bob.pem', 'w') as pr:
+    pr.write(private_pem_bob)
+with open('public_pem_bob.pem', 'w') as pu:
+    pu.write(public_pem_bob)
+    
+#Importing keys from files, converting it into the RsaKey object   
+pr_key_bob = RSA.import_key(open('private_pem_bob.pem', 'r').read())
+pu_key_bob = RSA.import_key(open('public_pem_bob.pem', 'r').read())
+print(type(pr_key_bob), type(pu_key_bob))
+
+#Instantiating PKCS1_OAEP object with the public key for encryption
+cipher = PKCS1_OAEP.new(key=pu_key_bob)
+
+#Encrypting the message with the PKCS1_OAEP object
+
+
+#1. Generating signeture - Alice encrypts the message with its private key
+signature = bls_pop.Sign(private_key_alice, message)
+print(signature)
+
+#2. Alice then encrypts it with bobs pubic key key
+#Encrypting the message with the PKCS1_OAEP object
+cipher_text = cipher.encrypt(message)
+print(cipher_text)
+
+# ------------- Send this message to bob ------------------
+
+#3. Bob Decrypts t with his private key
+
+#3.1 Instantiating PKCS1_OAEP object with the private key for decryption
+decrypt = PKCS1_OAEP.new(key=pr_key_bob)
+# 3.2 Decrypting the message with the PKCS1_OAEP object
+decrypted_message = decrypt.decrypt(cipher_text)
+print(decrypted_message)
+
+# 4. Verifying the alice signeture - decrypt it with alices pblic key
+out = bls_pop.Verify(public_key_alice, message, signature)
+print(out)
+
+if(out==True):
+    print("the authentication is successful....")
